@@ -1,5 +1,5 @@
 --====================================================================--
---          MASENSDEV MOUNT SORRY V1.3 PREMIUM EDITION                --
+--          MASENSDEV MOUNT SORRY V1.4 PREMIUM EDITION                --
 --====================================================================--
 
 local Players = game:GetService("Players")
@@ -88,7 +88,7 @@ local CurrentTween = nil
 local ManualIdx = 0
 
 -- Hapus GUI lama
-for _, n in ipairs({"MasensDevGUI", "MasensDevIntro"}) do
+for _, n in ipairs({"MasensDevGUI", "MasensDevIntro", "MasensDevKey"}) do
     local old = MainParent:FindFirstChild(n)
     if old then old:Destroy() end
 end
@@ -140,6 +140,317 @@ local function AccentGradient(obj, rotation)
         Color = ColorSequence.new(Theme.Accent, Theme.Accent2),
         Rotation = rotation or 0
     }, obj)
+end
+
+--====================================================================--
+--                  KEY SYSTEM (HWID / 1 DEVICE LOCK)                 --
+--====================================================================--
+local KeyConfig = {
+    Key = "VIPACCES",
+    -- Kosongkan = mode lokal (terikat via file di device).
+    -- Isi URL web app server = kunci 1 device yang benar-benar aman (lihat panduan).
+    VerifyURL = "https://script.google.com/macros/s/AKfycbyadf4z7MmlR5EalI61rHBHMDrATOe5bTk-aGEYP3JrM8fhHkyFR6L_Bjjzz0GbzyEXJw/exec",
+    SaveFile = "MasensDev_Key.json",
+    Discord = "https://discord.gg/8epSRHUXG",
+}
+
+local function GetHWID()
+    local id
+    pcall(function() if gethwid then id = gethwid() end end)
+    if not id or id == "" then
+        pcall(function() id = game:GetService("RbxAnalyticsService"):GetClientId() end)
+    end
+    return tostring(id or "UNKNOWN")
+end
+local HWID = GetHWID()
+
+local function SaveKeyFile(k)
+    pcall(function()
+        if writefile then
+            writefile(KeyConfig.SaveFile, HttpService:JSONEncode({key = k, hwid = HWID}))
+        end
+    end)
+end
+
+local function VerifyKey(input)
+    local k = string.upper((tostring(input or ""):gsub("%s+", "")))
+    if k == "" then return false, "Masukkan key terlebih dahulu" end
+
+    -- MODE SERVER: key & HWID dicek di server
+    if KeyConfig.VerifyURL ~= "" then
+        local ok, res = pcall(function()
+            local url = KeyConfig.VerifyURL .. "?key=" .. HttpService:UrlEncode(k) .. "&hwid=" .. HttpService:UrlEncode(HWID)
+            return HttpService:JSONDecode(game:HttpGet(url))
+        end)
+        if not ok or type(res) ~= "table" then
+            return false, "Gagal terhubung ke server key"
+        end
+        if res.success == true then
+            SaveKeyFile(k)
+            return true, res.message or "Key valid"
+        end
+        return false, res.message or "Key ditolak"
+    end
+
+    -- MODE LOKAL
+    if k ~= string.upper(KeyConfig.Key) then
+        return false, "Key salah"
+    end
+    local saved
+    pcall(function()
+        if isfile and readfile and isfile(KeyConfig.SaveFile) then
+            saved = HttpService:JSONDecode(readfile(KeyConfig.SaveFile))
+        end
+    end)
+    if saved and saved.key == k and saved.hwid ~= HWID then
+        return false, "Key sudah terikat ke device lain"
+    end
+    SaveKeyFile(k)
+    return true, "Key valid"
+end
+
+local function BuildKeyGate(state)
+    local gui = New("ScreenGui", {
+        Name = "MasensDevKey",
+        ResetOnSpawn = false,
+        IgnoreGuiInset = true,
+        DisplayOrder = 998,
+        ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
+    }, MainParent)
+
+    local dim = New("Frame", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundColor3 = Color3.fromRGB(4, 4, 7),
+        BackgroundTransparency = 0.12,
+        BorderSizePixel = 0,
+        ZIndex = 1,
+    }, gui)
+
+    local card = New("Frame", {
+        Size = UDim2.new(0, 380, 0, 290),
+        AnchorPoint = Vector2.new(0.5, 0.5),
+        Position = UDim2.new(0.5, 0, 0.5, 0),
+        BackgroundColor3 = Theme.BG,
+        BorderSizePixel = 0,
+        ZIndex = 2,
+    }, dim)
+    Round(card, 14)
+    Stroke(card, Theme.Stroke, 1)
+    local cardScale = New("UIScale", {Scale = 1}, card)
+    local cam = workspace.CurrentCamera
+    if cam then
+        local vp = cam.ViewportSize
+        cardScale.Scale = math.clamp(math.min(vp.X / 440, vp.Y / 340), 0.55, 1)
+    end
+
+    local topLine = New("Frame", {
+        Size = UDim2.new(1, 0, 0, 2),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0,
+        ZIndex = 3,
+    }, card)
+    AccentGradient(topLine, 0)
+
+    local logo = New("Frame", {
+        Size = UDim2.new(0, 44, 0, 44),
+        AnchorPoint = Vector2.new(0.5, 0),
+        Position = UDim2.new(0.5, 0, 0, 24),
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel = 0,
+        ZIndex = 3,
+    }, card)
+    Round(logo, 12)
+    AccentGradient(logo, 45)
+    New("TextLabel", {
+        Size = UDim2.new(1, 0, 1, 0),
+        BackgroundTransparency = 1,
+        Text = "M",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBlack,
+        TextSize = 22,
+        ZIndex = 4,
+    }, logo)
+
+    New("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 22),
+        Position = UDim2.new(0, 0, 0, 80),
+        BackgroundTransparency = 1,
+        Text = "VERIFIKASI KEY",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamBlack,
+        TextSize = 17,
+        ZIndex = 3,
+    }, card)
+    New("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 16),
+        Position = UDim2.new(0, 0, 0, 104),
+        BackgroundTransparency = 1,
+        Text = "Masukkan key untuk membuka MasensDev Premium",
+        TextColor3 = Theme.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        ZIndex = 3,
+    }, card)
+
+    local box = New("TextBox", {
+        Size = UDim2.new(0, 320, 0, 40),
+        Position = UDim2.new(0, 30, 0, 134),
+        BackgroundColor3 = Theme.Panel,
+        PlaceholderText = "Masukkan key...",
+        PlaceholderColor3 = Theme.Muted,
+        Text = "",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 14,
+        ClearTextOnFocus = false,
+        BorderSizePixel = 0,
+        ZIndex = 3,
+    }, card)
+    Round(box, 9)
+    local boxStroke = Stroke(box, Theme.Stroke, 1)
+    box.Focused:Connect(function() Tween(boxStroke, 0.15, {Color = Theme.Accent}) end)
+    box.FocusLost:Connect(function() Tween(boxStroke, 0.15, {Color = Theme.Stroke}) end)
+
+    local status = New("TextLabel", {
+        Size = UDim2.new(1, -40, 0, 16),
+        Position = UDim2.new(0, 20, 0, 180),
+        BackgroundTransparency = 1,
+        Text = "",
+        TextColor3 = Theme.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 11,
+        ZIndex = 3,
+    }, card)
+
+    local verifyBtn = New("TextButton", {
+        Size = UDim2.new(0, 320, 0, 40),
+        Position = UDim2.new(0, 30, 0, 204),
+        BackgroundColor3 = Theme.Accent,
+        Text = "VERIFIKASI",
+        TextColor3 = Color3.new(1, 1, 1),
+        Font = Enum.Font.GothamBold,
+        TextSize = 13,
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+        ZIndex = 3,
+    }, card)
+    Round(verifyBtn, 9)
+    verifyBtn.MouseEnter:Connect(function() Tween(verifyBtn, 0.15, {BackgroundColor3 = Color3.fromRGB(244, 63, 100)}) end)
+    verifyBtn.MouseLeave:Connect(function() Tween(verifyBtn, 0.15, {BackgroundColor3 = Theme.Accent}) end)
+
+    local discordBtn = New("TextButton", {
+        Size = UDim2.new(1, 0, 0, 18),
+        Position = UDim2.new(0, 0, 0, 252),
+        BackgroundTransparency = 1,
+        Text = "Belum punya key? Salin link Discord",
+        TextColor3 = Theme.Accent2,
+        Font = Enum.Font.GothamSemibold,
+        TextSize = 11,
+        ZIndex = 3,
+    }, card)
+    discordBtn.MouseButton1Click:Connect(function()
+        pcall(function()
+            if setclipboard then setclipboard(KeyConfig.Discord)
+            elseif toclipboard then toclipboard(KeyConfig.Discord) end
+        end)
+        status.Text = "Link Discord disalin"
+        status.TextColor3 = Theme.Success
+    end)
+
+    New("TextLabel", {
+        Size = UDim2.new(1, 0, 0, 12),
+        Position = UDim2.new(0, 0, 0, 272),
+        BackgroundTransparency = 1,
+        Text = "Device ID: " .. string.sub(HWID, 1, 8) .. "...",
+        TextColor3 = Theme.Muted,
+        Font = Enum.Font.Gotham,
+        TextSize = 9,
+        ZIndex = 3,
+    }, card)
+
+    local closeBtn = New("TextButton", {
+        Size = UDim2.new(0, 26, 0, 26),
+        Position = UDim2.new(1, -36, 0, 10),
+        BackgroundColor3 = Theme.Elevated,
+        Text = "X",
+        TextColor3 = Theme.Text,
+        Font = Enum.Font.GothamBold,
+        TextSize = 12,
+        AutoButtonColor = false,
+        BorderSizePixel = 0,
+        ZIndex = 4,
+    }, card)
+    Round(closeBtn, 7)
+    closeBtn.MouseButton1Click:Connect(function() state.Closed = true end)
+
+    local busy = false
+    local attempts = 0
+
+    local function Shake()
+        for _, dx in ipairs({10, -10, 6, -6, 0}) do
+            Tween(card, 0.05, {Position = UDim2.new(0.5, dx, 0.5, 0)})
+            task.wait(0.05)
+        end
+    end
+
+    local function Submit()
+        if busy then return end
+        busy = true
+        status.Text = "Memverifikasi..."
+        status.TextColor3 = Theme.Muted
+        verifyBtn.Text = "MEMVERIFIKASI..."
+
+        local ok, msg = VerifyKey(box.Text)
+        verifyBtn.Text = "VERIFIKASI"
+
+        if ok then
+            status.Text = msg
+            status.TextColor3 = Theme.Success
+            task.wait(0.7)
+            state.Verified = true
+        else
+            attempts = attempts + 1
+            status.Text = msg
+            status.TextColor3 = Theme.Accent
+            Shake()
+            if attempts >= 5 then
+                for s = 20, 1, -1 do
+                    status.Text = "Terlalu banyak percobaan. Tunggu " .. s .. " detik"
+                    task.wait(1)
+                end
+                attempts = 0
+                status.Text = ""
+            end
+            busy = false
+        end
+    end
+
+    verifyBtn.MouseButton1Click:Connect(Submit)
+    box.FocusLost:Connect(function(enter) if enter then Submit() end end)
+
+    return gui
+end
+
+local KeyState = {Verified = false, Closed = false}
+
+-- Auto login kalau key sudah pernah dipakai di device ini
+pcall(function()
+    if isfile and readfile and isfile(KeyConfig.SaveFile) then
+        local saved = HttpService:JSONDecode(readfile(KeyConfig.SaveFile))
+        if saved and saved.key and saved.hwid == HWID then
+            local ok = VerifyKey(saved.key)
+            if ok then KeyState.Verified = true end
+        end
+    end
+end)
+
+if not KeyState.Verified then
+    local KeyGui = BuildKeyGate(KeyState)
+    while not KeyState.Verified and not KeyState.Closed do
+        task.wait(0.1)
+    end
+    KeyGui:Destroy()
+    if KeyState.Closed then return end
 end
 
 --====================================================================--
@@ -413,7 +724,7 @@ New("TextLabel", {
     Size = UDim2.new(0, 220, 0, 14),
     Position = UDim2.new(0, 46, 0, 24),
     BackgroundTransparency = 1,
-    Text = "Mount Sorry  •  Premium V1.3",
+    Text = "Mount Sorry  •  Premium V1.4",
     TextColor3 = Theme.Muted,
     Font = Enum.Font.Gotham,
     TextSize = 11,
@@ -1193,7 +1504,7 @@ local IntroSub2 = New("TextLabel", {
     Size = UDim2.new(1, 0, 0, 18),
     Position = UDim2.new(0, 0, 0, 144),
     BackgroundTransparency = 1,
-    Text = "Mount Sorry Edition   •   V1.3",
+    Text = "Mount Sorry Edition   •   V1.4",
     TextColor3 = Theme.Muted,
     Font = Enum.Font.Gotham,
     TextSize = 12,
